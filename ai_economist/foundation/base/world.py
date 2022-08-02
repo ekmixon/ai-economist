@@ -63,7 +63,7 @@ class Maps:
                 self._resources.append(resource)
                 self._map_keys.append(resource)
 
-                self.landmarks.append("{}SourceBlock".format(resource))
+                self.landmarks.append(f"{resource}SourceBlock")
 
         for landmark in self.landmarks:
             dummy_landmark = landmark_registry.get(landmark)()
@@ -243,13 +243,9 @@ class Maps:
             assert owner is not None
             h = self._maps[entity_name]["health"]
             o = self._maps[entity_name]["owner"]
-            assert o[r, c] == -1 or o[r, c] == int(owner)
+            assert o[r, c] in [-1, int(owner)]
             h[r, c] = np.maximum(0, val)
-            if h[r, c] == 0:
-                o[r, c] = -1
-            else:
-                o[r, c] = int(owner)
-
+            o[r, c] = -1 if h[r, c] == 0 else int(owner)
             self._maps[entity_name]["owner"] = o
             self._maps[entity_name]["health"] = h
 
@@ -427,17 +423,19 @@ class World:
 
     def is_location_accessible(self, r, c, agent):
         """Return True if location [r, c] is accessible to agent."""
-        if not self.is_valid(r, c):
-            return False
-        return self.maps.is_accessible(r, c, agent.idx)
+        return (
+            self.maps.is_accessible(r, c, agent.idx)
+            if self.is_valid(r, c)
+            else False
+        )
 
     def can_agent_occupy(self, r, c, agent):
         """Return True if location [r, c] is accessible to agent and unoccupied."""
-        if not self.is_location_accessible(r, c, agent):
-            return False
-        if self.maps.unoccupied[r, c]:
-            return True
-        return False
+        return (
+            bool(self.maps.unoccupied[r, c])
+            if self.is_location_accessible(r, c, agent)
+            else False
+        )
 
     def clear_agent_locs(self):
         """Take all agents off the board. Useful for resetting."""
@@ -461,15 +459,11 @@ class World:
 
     def location_resources(self, r, c):
         """Return {resource: health} dictionary for any resources at location [r, c]."""
-        if not self.is_valid(r, c):
-            return {}
-        return self.maps.location_resources(r, c)
+        return self.maps.location_resources(r, c) if self.is_valid(r, c) else {}
 
     def location_landmarks(self, r, c):
         """Return {landmark: health} dictionary for any landmarks at location [r, c]."""
-        if not self.is_valid(r, c):
-            return {}
-        return self.maps.location_landmarks(r, c)
+        return self.maps.location_landmarks(r, c) if self.is_valid(r, c) else {}
 
     def create_landmark(self, landmark_name, r, c, agent_idx=None):
         """Place a landmark on the world map.

@@ -77,10 +77,7 @@ class Build(BaseComponent):
         # Do nothing if this spot is already occupied by a landmark or resource
         if self.world.location_resources(*agent.loc):
             return False
-        if self.world.location_landmarks(*agent.loc):
-            return False
-        # If we made it here, the agent can build.
-        return True
+        return not self.world.location_landmarks(*agent.loc)
 
     # Required methods for implementing components
     # --------------------------------------------
@@ -92,10 +89,7 @@ class Build(BaseComponent):
         Add a single action (build) for mobile agents.
         """
         # This component adds 1 action that mobile agents can take: build a house
-        if agent_cls_name == "BasicMobileAgent":
-            return 1
-
-        return None
+        return 1 if agent_cls_name == "BasicMobileAgent" else None
 
     def get_additional_state_fields(self, agent_cls_name):
         """
@@ -168,14 +162,13 @@ class Build(BaseComponent):
         from this component.
         """
 
-        obs_dict = dict()
-        for agent in self.world.agents:
-            obs_dict[agent.idx] = {
+        return {
+            agent.idx: {
                 "build_payment": agent.state["build_payment"] / self.payment,
                 "build_skill": self.sampled_skills[agent.idx],
             }
-
-        return obs_dict
+            for agent in self.world.agents
+        }
 
     def generate_masks(self, completions=0):
         """
@@ -184,13 +177,10 @@ class Build(BaseComponent):
         Prevent building only if a landmark already occupies the agent's location.
         """
 
-        masks = {}
-        # Mobile agents' build action is masked if they cannot build with their
-        # current location and/or endowment
-        for agent in self.world.agents:
-            masks[agent.idx] = np.array([self.agent_can_build(agent)])
-
-        return masks
+        return {
+            agent.idx: np.array([self.agent_can_build(agent)])
+            for agent in self.world.agents
+        }
 
     # For non-required customization
     # ------------------------------
@@ -214,7 +204,7 @@ class Build(BaseComponent):
         out_dict = {}
         for a in world.agents:
             for k, v in build_stats[a.idx].items():
-                out_dict["{}/{}".format(a.idx, k)] = v
+                out_dict[f"{a.idx}/{k}"] = v
 
         num_houses = np.sum(world.maps.get("House") > 0)
         out_dict["total_builds"] = num_houses

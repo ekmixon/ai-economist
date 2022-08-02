@@ -189,11 +189,7 @@ class RLlibEnvWrapper(MultiAgentEnv):
         seed2 = seeding.hash_seed(seed1 + 1) % 2 ** 31
 
         if self.verbose:
-            print(
-                "[EnvWrapper] twisting seed {} -> {} -> {} (final)".format(
-                    seed, seed1, seed2
-                )
-            )
+            print(f"[EnvWrapper] twisting seed {seed} -> {seed1} -> {seed2} (final)")
 
         seed = int(seed2)
         np.random.seed(seed2)

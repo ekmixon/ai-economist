@@ -90,9 +90,7 @@ class SimpleLabor(BaseComponent):
             agent.state["skill"] = self.skills[agent.idx]
 
     def get_n_actions(self, agent_cls_name):
-        if agent_cls_name == "BasicMobileAgent":
-            return self.num_labor_hours
-        return None
+        return self.num_labor_hours if agent_cls_name == "BasicMobileAgent" else None
 
     def generate_masks(self, completions=0):
         if self.is_first_step:
@@ -126,9 +124,9 @@ class SimpleLabor(BaseComponent):
                 raise ValueError
 
     def generate_observations(self):
-        obs_dict = dict()
-        for agent in self.world.agents:
-            obs_dict[str(agent.idx)] = {
+        return {
+            str(agent.idx): {
                 "skill": agent.state["skill"] / self.payment_max_skill_multiplier
             }
-        return obs_dict
+            for agent in self.world.agents
+        }

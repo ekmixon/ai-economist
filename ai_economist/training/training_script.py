@@ -11,6 +11,7 @@ You will also need to install WarpDrive (https://github.com/salesforce/warp-driv
 using `pip install rl-warp-drive`, and Pytorch(https://pytorch.org/)
 """
 
+
 import argparse
 import os
 
@@ -66,27 +67,23 @@ if __name__ == "__main__":
 
     num_envs = run_config["trainer"]["num_envs"]
 
-    # Create a wrapped environment object via the EnvWrapper
-    # Ensure that use_cuda is set to True (in order to run on the GPU)
-    # ----------------------------------------------------------------
-    if run_config["name"] == _COVID_AND_ECONOMY_ENVIRONMENT:
-        env_registrar = CustomizedEnvironmentRegistrar()
-        this_file_dir = os.path.dirname(os.path.abspath(__file__))
-        env_registrar.register_environment(
-            CovidAndEconomyEnvironment.name,
-            os.path.join(
-                this_file_dir, "../foundation/scenarios/covid19/covid19_build.cu"
-            ),
-        )
-        env_wrapper = FoundationEnvWrapper(
-            CovidAndEconomyEnvironment(**run_config["env"]),
-            num_envs=num_envs,
-            use_cuda=True,
-            customized_env_registrar=env_registrar,
-        )
-    else:
+    if run_config["name"] != _COVID_AND_ECONOMY_ENVIRONMENT:
         raise NotImplementedError
 
+    env_registrar = CustomizedEnvironmentRegistrar()
+    this_file_dir = os.path.dirname(os.path.abspath(__file__))
+    env_registrar.register_environment(
+        CovidAndEconomyEnvironment.name,
+        os.path.join(
+            this_file_dir, "../foundation/scenarios/covid19/covid19_build.cu"
+        ),
+    )
+    env_wrapper = FoundationEnvWrapper(
+        CovidAndEconomyEnvironment(**run_config["env"]),
+        num_envs=num_envs,
+        use_cuda=True,
+        customized_env_registrar=env_registrar,
+    )
     # Policy mapping to agent ids: agents can share models
     # The policy_tag_to_agent_id_map dictionary maps
     # policy model names to agent ids.

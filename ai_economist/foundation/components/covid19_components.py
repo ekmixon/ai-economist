@@ -62,7 +62,7 @@ class ControlUSStateOpenCloseStatus(BaseComponent):
         assert self.n_stringency_levels >= 2
         self._checked_n_stringency_levels = False
 
-        self.masks = dict()
+        self.masks = {}
         self.default_agent_action_mask = [1 for _ in range(self.n_stringency_levels)]
         self.no_op_agent_action_mask = [0 for _ in range(self.n_stringency_levels)]
         self.masks["a"] = np.repeat(
@@ -92,13 +92,12 @@ class ControlUSStateOpenCloseStatus(BaseComponent):
         for agent in self.world.agents:
             if self.world.use_real_world_policies:
                 self.masks["a"][:, agent.idx] = self.default_agent_action_mask
-            else:
-                if self.world.timestep < self.action_in_cooldown_until[agent.idx]:
-                    # Keep masking the actions
-                    self.masks["a"][:, agent.idx] = self.no_op_agent_action_mask
-                else:  # self.world.timestep == self.action_in_cooldown_until[agent.idx]
-                    # Cooldown period has ended; unmask the "subsequent" action
-                    self.masks["a"][:, agent.idx] = self.default_agent_action_mask
+            elif self.world.timestep < self.action_in_cooldown_until[agent.idx]:
+                # Keep masking the actions
+                self.masks["a"][:, agent.idx] = self.no_op_agent_action_mask
+            else:  # self.world.timestep == self.action_in_cooldown_until[agent.idx]
+                # Cooldown period has ended; unmask the "subsequent" action
+                self.masks["a"][:, agent.idx] = self.default_agent_action_mask
         return self.masks
 
     def get_data_dictionary(self):
@@ -133,8 +132,7 @@ class ControlUSStateOpenCloseStatus(BaseComponent):
         """
         Create a dictionary of (Pytorch-accesible) data to push to the GPU (device).
         """
-        tensor_dict = DataFeed()
-        return tensor_dict
+        return DataFeed()
 
     def component_step(self):
         if self.world.use_cuda:
@@ -165,10 +163,9 @@ class ControlUSStateOpenCloseStatus(BaseComponent):
             if not self._checked_n_stringency_levels:
                 if self.n_stringency_levels != self.world.n_stringency_levels:
                     raise ValueError(
-                        "The environment was not configured correctly. For the given "
-                        "model fit, you need to set the number of stringency levels to "
-                        "be {}".format(self.world.n_stringency_levels)
+                        f"The environment was not configured correctly. For the given model fit, you need to set the number of stringency levels to be {self.world.n_stringency_levels}"
                     )
+
                 self._checked_n_stringency_levels = True
 
             for agent in self.world.agents:
@@ -216,21 +213,19 @@ class ControlUSStateOpenCloseStatus(BaseComponent):
 
     def generate_observations(self):
 
-        # Normalized observations
-        obs_dict = dict()
         agent_policy_indicators = self.world.global_state["Stringency Level"][
             self.world.timestep
         ]
-        obs_dict["a"] = {
-            "agent_policy_indicators": agent_policy_indicators
-            / self.n_stringency_levels
+        return {
+            "a": {
+                "agent_policy_indicators": agent_policy_indicators
+                / self.n_stringency_levels
+            },
+            self.world.planner.idx: {
+                "agent_policy_indicators": agent_policy_indicators
+                / self.n_stringency_levels
+            },
         }
-        obs_dict[self.world.planner.idx] = {
-            "agent_policy_indicators": agent_policy_indicators
-            / self.n_stringency_levels
-        }
-
-        return obs_dict
 
 
 @component_registry.add
@@ -301,21 +296,16 @@ class FederalGovernmentSubsidy(BaseComponent):
         )
 
     def get_n_actions(self, agent_cls_name):
-        if agent_cls_name == "BasicPlanner":
-            # Number of non-zero subsidy levels
-            # (the action 0 pertains to the no-subsidy case)
-            return self.num_subsidy_levels
-        return None
+        return self.num_subsidy_levels if agent_cls_name == "BasicPlanner" else None
 
     def generate_masks(self, completions=0):
         masks = {}
         if self.world.use_real_world_policies:
             masks[self.world.planner.idx] = self.default_planner_action_mask
+        elif self.world.timestep % self.subsidy_interval == 0:
+            masks[self.world.planner.idx] = self.default_planner_action_mask
         else:
-            if self.world.timestep % self.subsidy_interval == 0:
-                masks[self.world.planner.idx] = self.default_planner_action_mask
-            else:
-                masks[self.world.planner.idx] = self.no_op_planner_action_mask
+            masks[self.world.planner.idx] = self.no_op_planner_action_mask
         return masks
 
     def get_data_dictionary(self):
@@ -349,8 +339,7 @@ class FederalGovernmentSubsidy(BaseComponent):
         """
         Create a dictionary of (Pytorch-accesible) data to push to the device
         """
-        tensor_dict = DataFeed()
-        return tensor_dict
+        return DataFeed()
 
     def component_step(self):
         if self.world.use_cuda:
@@ -412,13 +401,10 @@ class FederalGovernmentSubsidy(BaseComponent):
                     ):
                         self._subsidy_level_array[t_idx] += _subsidy_level
                 subsidy_level = self._subsidy_level_array[self.world.timestep - 1]
+            elif (self.world.timestep - 1) % self.subsidy_interval == 0:
+                subsidy_level = self.world.planner.get_component_action(self.name)
             else:
-                # Update the subsidy level only every self.subsidy_interval, since the
-                # other actions are masked out.
-                if (self.world.timestep - 1) % self.subsidy_interval == 0:
-                    subsidy_level = self.world.planner.get_component_action(self.name)
-                else:
-                    subsidy_level = self.world.planner.state["Current Subsidy Level"]
+                subsidy_level = self.world.planner.state["Current Subsidy Level"]
 
             assert 0 <= subsidy_level <= self.num_subsidy_levels
             self.world.planner.state["Current Subsidy Level"] = np.array(
@@ -447,18 +433,18 @@ class FederalGovernmentSubsidy(BaseComponent):
         current_subsidy_level = self.world.planner.state["Current Subsidy Level"]
         sl_vec = current_subsidy_level * np.ones(self.n_agents)
 
-        # Normalized observations
-        obs_dict = dict()
-        obs_dict["a"] = {
-            "t_until_next_subsidy": t_vec / self.subsidy_interval,
-            "current_subsidy_level": sl_vec / self.num_subsidy_levels,
+        return {
+            "a": {
+                "t_until_next_subsidy": t_vec / self.subsidy_interval,
+                "current_subsidy_level": sl_vec / self.num_subsidy_levels,
+            },
+            self.world.planner.idx: {
+                "t_until_next_subsidy": t_until_next_subsidy
+                / self.subsidy_interval,
+                "current_subsidy_level": current_subsidy_level
+                / self.num_subsidy_levels,
+            },
         }
-        obs_dict[self.world.planner.idx] = {
-            "t_until_next_subsidy": t_until_next_subsidy / self.subsidy_interval,
-            "current_subsidy_level": current_subsidy_level / self.num_subsidy_levels,
-        }
-
-        return obs_dict
 
 
 @component_registry.add
@@ -581,8 +567,7 @@ class VaccinationCampaign(BaseComponent):
         """
         Create a dictionary of (Pytorch-accesible) data to push to the device
         """
-        tensor_dict = DataFeed()
-        return tensor_dict
+        return DataFeed()
 
     def component_step(self):
         if self.world.use_cuda:
@@ -644,12 +629,11 @@ class VaccinationCampaign(BaseComponent):
         r_vec = next_vax_rate * np.ones(self.n_agents)
 
         # Normalized observations
-        obs_dict = dict()
-        obs_dict["a"] = {
-            "t_until_next_vaccines": t_vec / self.delivery_interval,
-        }
-        obs_dict[self.world.planner.idx] = {
-            "t_until_next_vaccines": t_until_next_vac / self.delivery_interval,
+        obs_dict = {
+            "a": {"t_until_next_vaccines": t_vec / self.delivery_interval},
+            self.world.planner.idx: {
+                "t_until_next_vaccines": t_until_next_vac / self.delivery_interval
+            },
         }
 
         if self.observe_rate:

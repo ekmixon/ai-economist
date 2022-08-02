@@ -42,10 +42,7 @@ def isoelastic_coin_minus_labor(
     # disutility from labor
     util_l = total_labor * labor_coefficient
 
-    # Net utility
-    util = util_c - util_l
-
-    return util
+    return util_c - util_l
 
 
 def coin_minus_labor_cost(
@@ -75,10 +72,7 @@ def coin_minus_labor_cost(
     # Disutility from labor
     util_l = (total_labor ** labor_exponent) * labor_coefficient
 
-    # Net utility
-    util = util_c - util_l
-
-    return util
+    return util_c - util_l
 
 
 def coin_eq_times_productivity(coin_endowments, equality_weight):

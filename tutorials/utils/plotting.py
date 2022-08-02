@@ -166,9 +166,9 @@ def vis_world_array(dense_logs, ts, eps=None, axes=None, remap_key=None):
             plot_log_state(dense_logs[ep], t, ax=axes[ei, ti], remap_key=remap_key)
 
     for ax, t in zip(axes[0], ts):
-        ax.set_title("T = {}".format(t))
+        ax.set_title(f"T = {t}")
     for ax, ep in zip(axes[:, 0], eps):
-        ax.set_ylabel("Episode {}".format(ep))
+        ax.set_ylabel(f"Episode {ep}")
 
     return fig
 
@@ -204,8 +204,9 @@ def vis_builds(dense_logs, eps=None, ax=None):
         ax.plot(
             np.cumsum([len(b["builds"]) for b in dense_logs[ep]["Build"]]),
             color=cmap(i),
-            label="Ep {}".format(ep),
+            label=f"Ep {ep}",
         )
+
     ax.legend()
     ax.grid(b=True)
     ax.set_ylim(bottom=0)
@@ -216,29 +217,26 @@ def trade_str(c_trades, resource, agent, income=True):
         p = [x["income"] for x in c_trades[resource] if x["seller"] == agent]
     else:
         p = [x["cost"] for x in c_trades[resource] if x["buyer"] == agent]
-    if len(p) > 0:
+    if p:
         return "{:6.2f} (n={:3d})".format(np.mean(p), len(p))
-    else:
-        tmp = "~" * 8
-        tmp = (" ") * 3 + tmp + (" ") * 3
-        return tmp
+    tmp = "~" * 8
+    tmp = (" ") * 3 + tmp + (" ") * 3
+    return tmp
 
 
 def full_trade_str(c_trades, resource, a_indices, income=True):
-    s_head = "{} ({})".format("Income" if income else "Cost", resource)
+    s_head = f'{"Income" if income else "Cost"} ({resource})'
     ac_strings = [trade_str(c_trades, resource, buyer, income) for buyer in a_indices]
     s_tail = " | ".join(ac_strings)
     return "{:<15}: {}".format(s_head, s_tail)
 
 
 def build_str(all_builds, agent):
-    p = [x["income"] for x in all_builds if x["builder"] == agent]
-    if len(p) > 0:
+    if p := [x["income"] for x in all_builds if x["builder"] == agent]:
         return "{:6.2f} (n={:3d})".format(np.mean(p), len(p))
-    else:
-        tmp = "~" * 8
-        tmp = (" ") * 3 + tmp + (" ") * 3
-        return tmp
+    tmp = "~" * 8
+    tmp = (" ") * 3 + tmp + (" ") * 3
+    return tmp
 
 
 def full_build_str(all_builds, a_indices):

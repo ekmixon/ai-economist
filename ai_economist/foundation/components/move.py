@@ -74,9 +74,7 @@ class Gather(BaseComponent):
         """
         # This component adds 4 action that agents can take:
         # move up, down, left, or right
-        if agent_cls_name == "BasicMobileAgent":
-            return 4
-        return None
+        return 4 if agent_cls_name == "BasicMobileAgent" else None
 
     def get_additional_state_fields(self, agent_cls_name):
         """
@@ -183,9 +181,7 @@ class Gather(BaseComponent):
             np.float32
         )
 
-        masks = {agent.idx: mask_array[i] for i, agent in enumerate(world.agents)}
-
-        return masks
+        return {agent.idx: mask_array[i] for i, agent in enumerate(world.agents)}
 
     # For non-required customization
     # ------------------------------

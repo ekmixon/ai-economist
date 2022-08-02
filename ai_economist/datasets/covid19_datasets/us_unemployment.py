@@ -24,9 +24,9 @@ class DatasetCovidUnemploymentUS:
     def __init__(self, data_dir="", download_latest_data=True):
         if not os.path.exists(data_dir):
             print(
-                "Creating a dynamic data directory to store COVID-19 "
-                "unemployment data: {}".format(data_dir)
+                f"Creating a dynamic data directory to store COVID-19 unemployment data: {data_dir}"
             )
+
             os.makedirs(data_dir)
 
         filename = "monthly_us_unemployment.bz2"
@@ -44,23 +44,22 @@ class DatasetCovidUnemploymentUS:
             ).to_dict()
 
             print(
-                "Fetching the U.S. unemployment data from "
-                "Bureau of Labor and Statistics, and saving it in {}".format(data_dir)
+                f"Fetching the U.S. unemployment data from Bureau of Labor and Statistics, and saving it in {data_dir}"
             )
+
             self.data = self.scrape_bls_data()
             fp = bz2.BZ2File(os.path.join(data_dir, filename), "wb")
             pickle.dump(self.data, fp)
-            fp.close()
-
         else:
             print(
-                "Not fetching the U.S. unemployment data from Bureau of Labor and"
-                " Statistics. Using whatever was saved earlier in {}!!".format(data_dir)
+                f"Not fetching the U.S. unemployment data from Bureau of Labor and Statistics. Using whatever was saved earlier in {data_dir}!!"
             )
+
             assert filename in os.listdir(data_dir)
             with bz2.BZ2File(os.path.join(data_dir, filename), "rb") as fp:
                 self.data = pickle.load(fp)
-            fp.close()
+
+        fp.close()
 
     # Scrape monthly unemployment from the Bureau of Labor Statistics website
     def get_monthly_bls_unemployment_rates(self, state_fips):

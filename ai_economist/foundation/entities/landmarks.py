@@ -58,14 +58,17 @@ for resource_name in resource_registry.entries:
     if not resource.collectible:
         continue
 
+
+
     @landmark_registry.add
     class SourceBlock(Landmark):
         """Special Landmark for generating resources. Not ownable. Not solid."""
 
-        name = "{}SourceBlock".format(resource.name)
+        name = f"{resource.name}SourceBlock"
         color = np.array(resource.color)
         ownable = False
         solid = False
+
 
 
 @landmark_registry.add

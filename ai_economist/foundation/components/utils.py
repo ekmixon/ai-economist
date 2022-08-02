@@ -50,11 +50,7 @@ def annealed_tax_limit(completions, warmup_period, slope, final_max_tax_value=1.
         0.0, np.minimum(1.0, slope * (completions - warmup_period))
     )
 
-    # Determine the highest allowable tax,
-    # given the current position in the annealing schedule
-    current_max_tax = percentage_visible * final_max_tax_value
-
-    return current_max_tax
+    return percentage_visible * final_max_tax_value
 
 
 def annealed_tax_mask(completions, warmup_period, slope, tax_values):

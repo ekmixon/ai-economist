@@ -36,8 +36,7 @@ def get_gini(endowments):
         diff = np.sum(diff_ij)
         norm = 2 * n_agents * endowments.sum(axis=0)
         unscaled_gini = diff / (norm + 1e-10)
-        gini = unscaled_gini / ((n_agents - 1) / n_agents)
-        return gini
+        return unscaled_gini / ((n_agents - 1) / n_agents)
 
     # Much faster. Slightly overestimated for low n.
     s_endows = np.sort(endowments)

@@ -66,9 +66,10 @@ def make_run_dir_path(args, log_group):
 
     run_dir = os.path.join(
         group_dir,
-        "launch_time_{}".format(args.launch_time),
-        "run_id_{}".format(args.unique_run_id),
+        f"launch_time_{args.launch_time}",
+        f"run_id_{args.unique_run_id}",
     )
+
     debug_dir = os.path.join(run_dir, "debug")
     dense_log_dir = os.path.join(run_dir, "dense_logs")
     ckpt_dir = os.path.join(run_dir, "ckpts")
@@ -96,9 +97,10 @@ def write_dense_logs(trainer, log_directory, suffix=""):
             my_path = os.path.join(
                 log_directory,
                 "env{:03d}{}.lz4".format(
-                    env_wrapper.env_id, "." + suffix if suffix != "" else ""
+                    env_wrapper.env_id, f".{suffix}" if suffix != "" else ""
                 ),
             )
+
             foundation.utils.save_episode_log(env_wrapper.env, my_path)
 
     remote_env_fun(trainer, save_log)
@@ -116,16 +118,15 @@ def save_tf_model_weights(trainer, ckpt_dir, global_step, suffix=""):
     else:
         raise NotImplementedError
 
-    fn = os.path.join(
-        ckpt_dir, "{}.tf.weights.global-step-{}".format(suffix, global_step)
-    )
+    fn = os.path.join(ckpt_dir, f"{suffix}.tf.weights.global-step-{global_step}")
     with open(fn, "wb") as f:
         pickle.dump(w, f)
 
     fn = os.path.join(
         ckpt_dir,
-        "{}.policy-model-weight-array.global-step-{}".format(suffix, global_step),
+        f"{suffix}.policy-model-weight-array.global-step-{global_step}",
     )
+
     with open(fn, "wb") as f:
         pickle.dump(model_w_array, f)
 
@@ -143,12 +144,14 @@ def load_tf_model_weights(trainer, ckpt):
 def save_snapshot(trainer, ckpt_dir, suffix=""):
     # Create a new trainer snapshot
     filepath = trainer.save(ckpt_dir)
-    filepath_metadata = filepath + ".tune_metadata"
+    filepath_metadata = f"{filepath}.tune_metadata"
     # Copy this to a standardized name (to only keep the latest)
     latest_filepath = os.path.join(
-        ckpt_dir, "latest_checkpoint{}.pkl".format("." + suffix if suffix != "" else "")
+        ckpt_dir,
+        f'latest_checkpoint{f".{suffix}" if suffix != "" else ""}.pkl',
     )
-    latest_filepath_metadata = latest_filepath + ".tune_metadata"
+
+    latest_filepath_metadata = f"{latest_filepath}.tune_metadata"
     shutil.copy(filepath, latest_filepath)
     shutil.copy(filepath_metadata, latest_filepath_metadata)
     # Get rid of the timestamped copy to prevent accumulating too many large files
@@ -167,34 +170,7 @@ def load_snapshot(trainer, run_dir, ckpt=None, suffix="", load_latest=False):
 
     loaded_ckpt_success = False
 
-    if not ckpt:
-        if load_latest:
-            # Restore from the latest checkpoint (pointing to it by path)
-            ckpt_fp = os.path.join(
-                run_dir,
-                "ckpts",
-                "latest_checkpoint{}.pkl".format("." + suffix if suffix != "" else ""),
-            )
-            if os.path.isfile(ckpt_fp):
-                trainer.restore(ckpt_fp)
-                loaded_ckpt_success = True
-                logger.info(
-                    "load_snapshot -> loading %s SUCCESS for %s %s",
-                    ckpt_fp,
-                    suffix,
-                    trainer,
-                )
-            else:
-                logger.info(
-                    "load_snapshot -> loading %s FAILED,"
-                    " skipping restoring cpkt for %s %s",
-                    ckpt_fp,
-                    suffix,
-                    trainer,
-                )
-        else:
-            raise NotImplementedError
-    elif ckpt:
+    if ckpt:
         if os.path.isfile(ckpt):
             trainer.restore(ckpt)
             loaded_ckpt_success = True
@@ -209,9 +185,33 @@ def load_snapshot(trainer, run_dir, ckpt=None, suffix="", load_latest=False):
                 suffix,
                 trainer,
             )
-    else:
-        raise AssertionError
+    elif load_latest:
+            # Restore from the latest checkpoint (pointing to it by path)
+        ckpt_fp = os.path.join(
+            run_dir,
+            "ckpts",
+            f'latest_checkpoint{f".{suffix}" if suffix != "" else ""}.pkl',
+        )
 
+        if os.path.isfile(ckpt_fp):
+            trainer.restore(ckpt_fp)
+            loaded_ckpt_success = True
+            logger.info(
+                "load_snapshot -> loading %s SUCCESS for %s %s",
+                ckpt_fp,
+                suffix,
+                trainer,
+            )
+        else:
+            logger.info(
+                "load_snapshot -> loading %s FAILED,"
+                " skipping restoring cpkt for %s %s",
+                ckpt_fp,
+                suffix,
+                trainer,
+            )
+    else:
+        raise NotImplementedError
     # Also load snapshots of each environment object
     remote_env_fun(
         trainer,

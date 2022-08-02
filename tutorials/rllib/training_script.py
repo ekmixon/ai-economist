@@ -87,9 +87,7 @@ def build_trainer(run_configuration):
     policies = {"a": agent_policy_tuple, "p": planner_policy_tuple}
 
     def policy_mapping_fun(i):
-        if str(i).isdigit() or i == "a":
-            return "a"
-        return "p"
+        return "a" if str(i).isdigit() or i == "a" else "p"
 
     # Which policies to train
     if run_configuration["general"]["train_planner"]:
@@ -171,20 +169,17 @@ def set_up_dirs_and_maybe_restore(run_directory, run_configuration, trainer_obj)
         training_step_last_ckpt = 0
         epis_last_ckpt = 0
 
-        # For new runs, load only tf checkpoint weights
-        starting_weights_path_agents = run_configuration["general"].get(
+        if starting_weights_path_agents := run_configuration["general"].get(
             "restore_tf_weights_agents", ""
-        )
-        if starting_weights_path_agents:
+        ):
             logger.info("Restoring agents TF weights...")
             saving.load_tf_model_weights(trainer_obj, starting_weights_path_agents)
         else:
             logger.info("Starting with fresh agent TF weights.")
 
-        starting_weights_path_planner = run_configuration["general"].get(
+        if starting_weights_path_planner := run_configuration["general"].get(
             "restore_tf_weights_planner", ""
-        )
-        if starting_weights_path_planner:
+        ):
             logger.info("Restoring planner TF weights...")
             saving.load_tf_model_weights(trainer_obj, starting_weights_path_planner)
         else:
@@ -243,22 +238,21 @@ def maybe_save(trainer_obj, result_dict, ckpt_freq, ckpt_directory, trainer_step
 
     # Check if saving this iteration
     if (
-        result_dict["episodes_this_iter"] > 0
-    ):  # Don't save if midway through an episode.
+        (result_dict["episodes_this_iter"] > 0)
+        and ckpt_freq > 0
+        and global_step - trainer_step_last_ckpt >= ckpt_freq
+    ):
+        saving.save_snapshot(trainer_obj, ckpt_directory, suffix="")
+        saving.save_tf_model_weights(
+            trainer_obj, ckpt_directory, global_step, suffix="agent"
+        )
+        saving.save_tf_model_weights(
+            trainer_obj, ckpt_directory, global_step, suffix="planner"
+        )
 
-        if ckpt_freq > 0:
-            if global_step - trainer_step_last_ckpt >= ckpt_freq:
-                saving.save_snapshot(trainer_obj, ckpt_directory, suffix="")
-                saving.save_tf_model_weights(
-                    trainer_obj, ckpt_directory, global_step, suffix="agent"
-                )
-                saving.save_tf_model_weights(
-                    trainer_obj, ckpt_directory, global_step, suffix="planner"
-                )
+        trainer_step_last_ckpt = int(global_step)
 
-                trainer_step_last_ckpt = int(global_step)
-
-                logger.info("Checkpoint saved @ step %d", global_step)
+        logger.info("Checkpoint saved @ step %d", global_step)
 
     return trainer_step_last_ckpt
 

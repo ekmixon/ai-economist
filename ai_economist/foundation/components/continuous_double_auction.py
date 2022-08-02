@@ -118,10 +118,7 @@ class ContinuousDoubleAuction(BaseComponent):
             ask_hist (ndarray): For each possible price level, the number of
                 available asks.
         """
-        if agent is None:
-            a_idx = -1
-        else:
-            a_idx = agent.idx
+        a_idx = -1 if agent is None else agent.idx
         ask_hist = self._price_zeros()
         for i, h in self.ask_hists[resource].items():
             if a_idx != i:
@@ -141,10 +138,7 @@ class ContinuousDoubleAuction(BaseComponent):
             bid_hist (ndarray): For each possible price level, the number of
                 available bids.
         """
-        if agent is None:
-            a_idx = -1
-        else:
-            a_idx = agent.idx
+        a_idx = -1 if agent is None else agent.idx
         bid_hist = self._price_zeros()
         for i, h in self.bid_hists[resource].items():
             if a_idx != i:
@@ -276,30 +270,23 @@ class ContinuousDoubleAuction(BaseComponent):
                     if not possible_match[bids[idx_bid]["buyer"]]:
                         idx_bid += 1
 
-                    # Out of asks to check. This buyer won't find a match on this round.
-                    # (maybe) Restart inner loop.
                     elif idx_ask >= len(asks):
                         possible_match[bids[idx_bid]["buyer"]] = False
                         break
 
-                    # Skip to next ask if this ask comes from the buyer
-                    # of the current bid.
                     elif asks[idx_ask]["seller"] == bids[idx_bid]["buyer"]:
                         idx_ask += 1
 
-                    # If this bid/ask pair can't be matched, this buyer
-                    # can't be matched. (maybe) Restart inner loop.
                     elif bids[idx_bid]["bid"] < asks[idx_ask]["ask"]:
                         possible_match[bids[idx_bid]["buyer"]] = False
                         break
 
-                    # TRADE! (then restart inner loop)
                     else:
                         bid = bids.pop(idx_bid)
                         ask = asks.pop(idx_ask)
 
                         trade = {"commodity": resource}
-                        trade.update(bid)
+                        trade |= bid
                         trade.update(ask)
 
                         if (
@@ -428,12 +415,13 @@ class ContinuousDoubleAuction(BaseComponent):
         if agent_cls_name == "BasicMobileAgent":
             trades = []
             for c in self.commodities:
-                trades.append(
-                    ("Buy_{}".format(c), 1 + self.max_bid_ask)
-                )  # How much willing to pay for c
-                trades.append(
-                    ("Sell_{}".format(c), 1 + self.max_bid_ask)
-                )  # How much need to receive to sell c
+                trades.extend(
+                    (
+                        (f"Buy_{c}", 1 + self.max_bid_ask),
+                        (f"Sell_{c}", 1 + self.max_bid_ask),
+                    )
+                )
+
             return trades
 
         return None
@@ -460,9 +448,7 @@ class ContinuousDoubleAuction(BaseComponent):
 
                 # Create bid action
                 # -----------------
-                resource_action = agent.get_component_action(
-                    self.name, "Buy_{}".format(resource)
-                )
+                resource_action = agent.get_component_action(self.name, f"Buy_{resource}")
 
                 # No-op
                 if resource_action == 0:
@@ -477,9 +463,7 @@ class ContinuousDoubleAuction(BaseComponent):
 
                 # Create ask action
                 # -----------------
-                resource_action = agent.get_component_action(
-                    self.name, "Sell_{}".format(resource)
-                )
+                resource_action = agent.get_component_action(self.name, f"Sell_{resource}")
 
                 # No-op
                 if resource_action == 0:
@@ -525,27 +509,29 @@ class ContinuousDoubleAuction(BaseComponent):
 
             obs[world.planner.idx].update(
                 {
-                    "market_rate-{}".format(c): market_rate,
-                    "price_history-{}".format(c): scaled_price_history,
-                    "full_asks-{}".format(c): full_asks,
-                    "full_bids-{}".format(c): full_bids,
+                    f"market_rate-{c}": market_rate,
+                    f"price_history-{c}": scaled_price_history,
+                    f"full_asks-{c}": full_asks,
+                    f"full_bids-{c}": full_bids,
                 }
             )
 
-            for _, agent in enumerate(world.agents):
+
+            for agent in world.agents:
                 # Private to the agent
                 obs[agent.idx].update(
                     {
-                        "market_rate-{}".format(c): market_rate,
-                        "price_history-{}".format(c): scaled_price_history,
-                        "available_asks-{}".format(c): full_asks
+                        f"market_rate-{c}": market_rate,
+                        f"price_history-{c}": scaled_price_history,
+                        f"available_asks-{c}": full_asks
                         - self.ask_hists[c][agent.idx],
-                        "available_bids-{}".format(c): full_bids
+                        f"available_bids-{c}": full_bids
                         - self.bid_hists[c][agent.idx],
-                        "my_asks-{}".format(c): self.ask_hists[c][agent.idx],
-                        "my_bids-{}".format(c): self.bid_hists[c][agent.idx],
+                        f"my_asks-{c}": self.ask_hists[c][agent.idx],
+                        f"my_bids-{c}": self.bid_hists[c][agent.idx],
                     }
                 )
+
 
         return obs
 
@@ -559,7 +545,7 @@ class ContinuousDoubleAuction(BaseComponent):
         """
         world = self.world
 
-        masks = dict()
+        masks = {}
 
         for agent in world.agents:
             masks[agent.idx] = {}
@@ -567,23 +553,17 @@ class ContinuousDoubleAuction(BaseComponent):
             can_pay = np.arange(self.max_bid_ask + 1) <= agent.inventory["Coin"]
 
             for resource in self.commodities:
-                if not self.can_ask(resource, agent):  # asks_maxed:
-                    masks[agent.idx]["Sell_{}".format(resource)] = np.zeros(
-                        1 + self.max_bid_ask
-                    )
-                else:
-                    masks[agent.idx]["Sell_{}".format(resource)] = np.ones(
-                        1 + self.max_bid_ask
-                    )
+                masks[agent.idx][f"Sell_{resource}"] = (
+                    np.ones(1 + self.max_bid_ask)
+                    if self.can_ask(resource, agent)
+                    else np.zeros(1 + self.max_bid_ask)
+                )
 
-                if not self.can_bid(resource, agent):
-                    masks[agent.idx]["Buy_{}".format(resource)] = np.zeros(
-                        1 + self.max_bid_ask
-                    )
-                else:
-                    masks[agent.idx]["Buy_{}".format(resource)] = can_pay.astype(
-                        np.int32
-                    )
+                masks[agent.idx][f"Buy_{resource}"] = (
+                    can_pay.astype(np.int32)
+                    if self.can_bid(resource, agent)
+                    else np.zeros(1 + self.max_bid_ask)
+                )
 
         return masks
 
@@ -642,7 +622,7 @@ class ContinuousDoubleAuction(BaseComponent):
                             stats[a.idx][c][k] /= n
 
                     for k, v in stats[a.idx][c].items():
-                        out_dict["{}/{}{}/{}".format(a.idx, prefix, c, k)] = v
+                        out_dict[f"{a.idx}/{prefix}{c}/{k}"] = v
 
         out_dict["n_trades"] = n_trades
 

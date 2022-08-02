@@ -101,14 +101,13 @@ class FoundationEnvWrapper(EnvWrapper):
             # Create a cuda_component_step dictionary
             self.env.world.cuda_component_step = {}
             for component in self.env.components:
-                self.cuda_function_manager.initialize_functions(
-                    ["Cuda" + component.name + "Step"]
-                )
+                self.cuda_function_manager.initialize_functions([f"Cuda{component.name}Step"])
                 self.env.world.cuda_component_step[
                     component.name
                 ] = self.cuda_function_manager._get_function(
-                    "Cuda" + component.name + "Step"
+                    f"Cuda{component.name}Step"
                 )
+
 
             # Scenario step and compute reward
             self.cuda_function_manager.initialize_functions(["CudaComputeReward"])

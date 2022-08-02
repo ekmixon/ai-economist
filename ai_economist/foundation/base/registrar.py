@@ -43,7 +43,7 @@ class Registry:
     def __init__(self, base_class=None):
         self.base_class = base_class
         self._entries = []
-        self._lookup = dict()
+        self._lookup = {}
 
     def add(self, cls):
         """Add cls to this registry.
@@ -77,7 +77,7 @@ class Registry:
         See Registry class docstring for example.
         """
         if cls_name.lower() not in self._lookup:
-            raise KeyError('"{}" is not a name of a registered class'.format(cls_name))
+            raise KeyError(f'"{cls_name}" is not a name of a registered class')
         return self._lookup[cls_name.lower()]
 
     def has(self, cls_name):

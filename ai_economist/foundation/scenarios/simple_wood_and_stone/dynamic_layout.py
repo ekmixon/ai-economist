@@ -243,15 +243,16 @@ class Uniform(BaseEnvironment):
             curr_optimization_metric (dict): A dictionary of {agent.idx: metric}
                 with an entry for each agent (including the planner) in the env.
         """
-        curr_optimization_metric = {}
-        # (for agents)
-        for agent in self.world.agents:
-            curr_optimization_metric[agent.idx] = rewards.isoelastic_coin_minus_labor(
+        curr_optimization_metric = {
+            agent.idx: rewards.isoelastic_coin_minus_labor(
                 coin_endowment=agent.total_endowment("Coin"),
                 total_labor=agent.state["endogenous"]["Labor"],
                 isoelastic_eta=self.isoelastic_eta,
                 labor_coefficient=self.energy_weight * self.energy_cost,
             )
+            for agent in self.world.agents
+        }
+
         # (for the planner)
         if self.planner_reward_type == "coin_eq_times_productivity":
             curr_optimization_metric[
@@ -368,16 +369,16 @@ class Uniform(BaseEnvironment):
                 self.world.maps.set(
                     resource, maybe_source_map
                 )  # * self.layout_specs[resource]['max_health'])
-                self.world.maps.set(resource + "SourceBlock", maybe_source_map)
+                self.world.maps.set(f"{resource}SourceBlock", maybe_source_map)
 
             # Restart if the resource distribution is too far off the target coverage
             happy_coverage = True
+            bound = 0.4
             for resource in resources:
                 coverage_quotient = (
                     np.mean(self.source_maps[resource])
                     / self.layout_specs[resource]["starting_coverage"]
                 )
-                bound = 0.4
                 if not (1 / (1 + bound)) <= coverage_quotient <= (1 + bound):
                     happy_coverage = False
 
@@ -389,7 +390,7 @@ class Uniform(BaseEnvironment):
                 source_map = source_map * self._checker_mask
                 self.source_maps[resource] = source_map
                 self.world.maps.set(resource, source_map)
-                self.world.maps.set(resource + "SourceBlock", source_map)
+                self.world.maps.set(f"{resource}SourceBlock", source_map)
 
     def reset_agent_states(self):
         """
@@ -451,7 +452,7 @@ class Uniform(BaseEnvironment):
             )
 
             resource_map = self.world.maps.get(resource)
-            resource_source_blocks = self.world.maps.get(resource + "SourceBlock")
+            resource_source_blocks = self.world.maps.get(f"{resource}SourceBlock")
             spawnable = (
                 self.world.maps.empty + resource_map + resource_source_blocks
             ) > 0
@@ -491,7 +492,6 @@ class Uniform(BaseEnvironment):
         The planner also receives spatial observations (again, depending on the env
         config) as well as the inventory of each of the mobile agents.
         """
-        obs = {}
         curr_map = self.world.maps.state
 
         owner_map = self.world.maps.owner_state
@@ -509,15 +509,20 @@ class Uniform(BaseEnvironment):
         }
         agent_invs = {
             str(agent.idx): {
-                "inventory-" + k: v * self.inv_scale for k, v in agent.inventory.items()
+                f"inventory-{k}": v * self.inv_scale
+                for k, v in agent.inventory.items()
             }
             for agent in self.world.agents
         }
 
-        obs[self.world.planner.idx] = {
-            "inventory-" + k: v * self.inv_scale
-            for k, v in self.world.planner.inventory.items()
+
+        obs = {
+            self.world.planner.idx: {
+                f"inventory-{k}": v * self.inv_scale
+                for k, v in self.world.planner.inventory.items()
+            }
         }
+
         if self._planner_gets_spatial_info:
             obs[self.world.planner.idx].update(
                 dict(map=curr_map, idx_map=agent_idx_maps)
@@ -535,7 +540,6 @@ class Uniform(BaseEnvironment):
                 }
                 obs[sidx].update(agent_invs[sidx])
 
-        # Mobile agents only see within a window around their position
         else:
             w = (
                 self._mobile_agent_observation_range
@@ -577,9 +581,9 @@ class Uniform(BaseEnvironment):
 
                 # Agent-wise planner info (gets crunched into the planner obs in the
                 # base scenario code)
-                obs["p" + sidx] = agent_invs[sidx]
+                obs[f"p{sidx}"] = agent_invs[sidx]
                 if self._planner_gets_spatial_info:
-                    obs["p" + sidx].update(agent_locs[sidx])
+                    obs[f"p{sidx}"].update(agent_locs[sidx])
 
         return obs
 

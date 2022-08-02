@@ -107,8 +107,7 @@ class LayoutFromFile(BaseEnvironment):
         }
         for r, symbol_row in enumerate(self.env_layout):
             for c, symbol in enumerate(symbol_row):
-                landmark = landmark_lookup.get(symbol, None)
-                if landmark:
+                if landmark := landmark_lookup.get(symbol, None):
                     self._source_maps[landmark][r, c] = 1
 
         # For controlling how resource regeneration behavior
@@ -274,15 +273,16 @@ class LayoutFromFile(BaseEnvironment):
             curr_optimization_metric (dict): A dictionary of {agent.idx: metric}
                 with an entry for each agent (including the planner) in the env.
         """
-        curr_optimization_metric = {}
-        # (for agents)
-        for agent in self.world.agents:
-            curr_optimization_metric[agent.idx] = rewards.isoelastic_coin_minus_labor(
+        curr_optimization_metric = {
+            agent.idx: rewards.isoelastic_coin_minus_labor(
                 coin_endowment=agent.total_endowment("Coin"),
                 total_labor=agent.state["endogenous"]["Labor"],
                 isoelastic_eta=self.isoelastic_eta,
                 labor_coefficient=self.energy_weight * self.energy_cost,
             )
+            for agent in self.world.agents
+        }
+
         # (for the planner)
         if self.planner_reward_type == "coin_eq_times_productivity":
             curr_optimization_metric[
@@ -331,7 +331,7 @@ class LayoutFromFile(BaseEnvironment):
         for landmark, landmark_map in self._source_maps.items():
             self.world.maps.set(landmark, landmark_map)
             if landmark in ["Stone", "Wood"]:
-                self.world.maps.set(landmark + "SourceBlock", landmark_map)
+                self.world.maps.set(f"{landmark}SourceBlock", landmark_map)
 
     def reset_agent_states(self):
         """
@@ -390,7 +390,7 @@ class LayoutFromFile(BaseEnvironment):
             )
 
             resource_map = self.world.maps.get(resource)
-            resource_source_blocks = self.world.maps.get(resource + "SourceBlock")
+            resource_source_blocks = self.world.maps.get(f"{resource}SourceBlock")
             spawnable = (
                 self.world.maps.empty + resource_map + resource_source_blocks
             ) > 0
@@ -430,7 +430,6 @@ class LayoutFromFile(BaseEnvironment):
         The planner also receives spatial observations (again, depending on the env
         config) as well as the inventory of each of the mobile agents.
         """
-        obs = {}
         curr_map = self.world.maps.state
 
         owner_map = self.world.maps.owner_state
@@ -448,15 +447,20 @@ class LayoutFromFile(BaseEnvironment):
         }
         agent_invs = {
             str(agent.idx): {
-                "inventory-" + k: v * self.inv_scale for k, v in agent.inventory.items()
+                f"inventory-{k}": v * self.inv_scale
+                for k, v in agent.inventory.items()
             }
             for agent in self.world.agents
         }
 
-        obs[self.world.planner.idx] = {
-            "inventory-" + k: v * self.inv_scale
-            for k, v in self.world.planner.inventory.items()
+
+        obs = {
+            self.world.planner.idx: {
+                f"inventory-{k}": v * self.inv_scale
+                for k, v in self.world.planner.inventory.items()
+            }
         }
+
         if self._planner_gets_spatial_info:
             obs[self.world.planner.idx].update(
                 dict(map=curr_map, idx_map=agent_idx_maps)
@@ -474,7 +478,6 @@ class LayoutFromFile(BaseEnvironment):
                 }
                 obs[sidx].update(agent_invs[sidx])
 
-        # Mobile agents only see within a window around their position
         else:
             w = (
                 self._mobile_agent_observation_range
@@ -516,9 +519,9 @@ class LayoutFromFile(BaseEnvironment):
 
                 # Agent-wise planner info (gets crunched into the planner obs in the
                 # base scenario code)
-                obs["p" + sidx] = agent_invs[sidx]
+                obs[f"p{sidx}"] = agent_invs[sidx]
                 if self._planner_gets_spatial_info:
-                    obs["p" + sidx].update(agent_locs[sidx])
+                    obs[f"p{sidx}"].update(agent_locs[sidx])
 
         return obs
 
@@ -608,14 +611,13 @@ class LayoutFromFile(BaseEnvironment):
 
         Here, summarize social metrics, endowments, utilities, and labor cost annealing.
         """
-        metrics = dict()
-
         coin_endowments = np.array(
             [agent.total_endowment("Coin") for agent in self.world.agents]
         )
-        metrics["social/productivity"] = social_metrics.get_productivity(
-            coin_endowments
-        )
+        metrics = {
+            "social/productivity": social_metrics.get_productivity(coin_endowments)
+        }
+
         metrics["social/equality"] = social_metrics.get_equality(coin_endowments)
 
         utilities = np.array(
@@ -637,17 +639,14 @@ class LayoutFromFile(BaseEnvironment):
 
         for agent in self.all_agents:
             for resource, quantity in agent.inventory.items():
-                metrics[
-                    "endow/{}/{}".format(agent.idx, resource)
-                ] = agent.total_endowment(resource)
+                metrics[f"endow/{agent.idx}/{resource}"] = agent.total_endowment(resource)
 
             if agent.endogenous is not None:
                 for resource, quantity in agent.endogenous.items():
-                    metrics["endogenous/{}/{}".format(agent.idx, resource)] = quantity
+                    metrics[f"endogenous/{agent.idx}/{resource}"] = quantity
 
-            metrics["util/{}".format(agent.idx)] = self.curr_optimization_metric[
-                agent.idx
-            ]
+            metrics[f"util/{agent.idx}"] = self.curr_optimization_metric[agent.idx]
+
 
         # Labor weight
         metrics["labor/weighted_cost"] = self.energy_cost * self.energy_weight

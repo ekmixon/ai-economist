@@ -42,18 +42,14 @@ class BaseAgent:
         if multi_action_mode is None:
             multi_action_mode = False
 
-        if isinstance(idx, str):
-            self._idx = idx
-        else:
-            self._idx = int(idx)
-
+        self._idx = idx if isinstance(idx, str) else int(idx)
         self.multi_action_mode = bool(multi_action_mode)
         self.single_action_map = (
             {}
         )  # Used to convert single-action-mode actions to the general format
 
-        self.action = dict()
-        self.action_dim = dict()
+        self.action = {}
+        self.action_dim = {}
         self._action_names = []
         self._multi_action_dict = {}
         self._unique_actions = 0
@@ -64,7 +60,7 @@ class BaseAgent:
         self._registered_inventory = False
         self._registered_endogenous = False
         self._registered_components = False
-        self._noop_action_dict = dict()
+        self._noop_action_dict = {}
 
         # Special flag to allow logic for multi-action-mode agents
         # that are not given any actions.
@@ -108,7 +104,7 @@ class BaseAgent:
         else:
             for action_n in range(1, n + 1):
                 self._total_actions += 1
-                self.single_action_map[int(self._total_actions)] = [
+                self.single_action_map[self._total_actions] = [
                     action_name,
                     action_n,
                 ]
@@ -127,30 +123,22 @@ class BaseAgent:
                     continue
                 self._incorporate_component(component.name, n)
 
-            # They can also internally handle multiple actions-per-agent,
-            # so n is an tuple or list
             elif isinstance(n, (tuple, list)):
                 for action_sub_name, n_ in n:
                     if n_ == 0:
                         continue
                     if "." in action_sub_name:
                         raise NameError(
-                            "Sub-action {} of component {} "
-                            "is illegally named.".format(
-                                action_sub_name, component.name
-                            )
+                            f"Sub-action {action_sub_name} of component {component.name} is illegally named."
                         )
-                    self._incorporate_component(
-                        "{}.{}".format(component.name, action_sub_name), n_
-                    )
 
-            # If that's not what we got something is funky.
+                    self._incorporate_component(f"{component.name}.{action_sub_name}", n_)
+
             else:
                 raise TypeError(
-                    "Received unexpected type ({}) from {}.get_n_actions('{}')".format(
-                        type(n), component.name, self.name
-                    )
+                    f"Received unexpected type ({type(n)}) from {component.name}.get_n_actions('{self.name}')"
                 )
+
 
             for k, v in component.get_additional_state_fields(self.name).items():
                 self.state[k] = v
@@ -212,14 +200,13 @@ class BaseAgent:
                 # 1 NO-OP + 1 Build action + 4 Gather actions.
         """
         if self.multi_action_mode:
-            action_dims = []
-            for m in self._action_names:
-                action_dims.append(np.array(self.action_dim[m]).reshape(-1))
+            action_dims = [
+                np.array(self.action_dim[m]).reshape(-1)
+                for m in self._action_names
+            ]
+
             return np.concatenate(action_dims).astype(np.int32)
-        n_actions = 1  # (NO-OP)
-        for m in self._action_names:
-            n_actions += self.action_dim[m]
-        return n_actions
+        return 1 + sum(self.action_dim[m] for m in self._action_names)
 
     @property
     def loc(self):
@@ -296,7 +283,7 @@ class BaseAgent:
         transferred = float(np.minimum(self.state["inventory"][resource], amount))
         self.state["inventory"][resource] -= transferred
         self.state["escrow"][resource] += transferred
-        return float(transferred)
+        return transferred
 
     def escrow_to_inventory(self, resource, amount):
         """Move some amount of a resource from agent escrow to agent inventory.
@@ -318,7 +305,7 @@ class BaseAgent:
         transferred = float(np.minimum(self.state["escrow"][resource], amount))
         self.state["escrow"][resource] -= transferred
         self.state["inventory"][resource] += transferred
-        return float(transferred)
+        return transferred
 
     def total_endowment(self, resource):
         """Get the combined inventory+escrow endowment of resource.
@@ -351,7 +338,7 @@ class BaseAgent:
 
     def has_component(self, component_name):
         """Returns True if the agent has component_name as a registered subaction."""
-        return bool(component_name in self.action)
+        return component_name in self.action
 
     def get_random_action(self):
         """
@@ -370,24 +357,26 @@ class BaseAgent:
         agent does not use that component.
         """
         if sub_action_name is not None:
-            return self.action.get(component_name + "." + sub_action_name, None)
-        matching_names = [
+            return self.action.get(f"{component_name}.{sub_action_name}", None)
+        if matching_names := [
             m for m in self._action_names if m.split(".")[0] == component_name
-        ]
-        if len(matching_names) == 0:
+        ]:
+            return (
+                self.action.get(matching_names[0], None)
+                if len(matching_names) == 1
+                else [self.action.get(m, None) for m in matching_names]
+            )
+
+        else:
             return None
-        if len(matching_names) == 1:
-            return self.action.get(matching_names[0], None)
-        return [self.action.get(m, None) for m in matching_names]
 
     def set_component_action(self, component_name, action):
         """Set the action(s) taken for component_name component."""
         if component_name not in self.action:
             raise KeyError(
-                "Agent {} of type {} does not have {} registered as a subaction".format(
-                    self.idx, self.name, component_name
-                )
+                f"Agent {self.idx} of type {self.name} does not have {component_name} registered as a subaction"
             )
+
         if self._multi_action_dict[component_name]:
             self.action[component_name] = np.array(action, dtype=np.int32)
         else:
@@ -414,7 +403,6 @@ class BaseAgent:
                 for action_name, action in zip(self._action_names, actions):
                     self.set_component_action(action_name, int(action))
 
-        # Single action mode
         else:
             # Action was supplied as an index of a specific subaction.
             # No need to do any lookup.
@@ -426,16 +414,14 @@ class BaseAgent:
                 action = list(actions.values())[0]
                 if action == 0:
                     return
-                self.set_component_action(action_name, action)
-
-            # Action was supplied as an index into the full set of combined actions
             else:
                 action = int(actions)
                 # Universal NO-OP
                 if action == 0:
                     return
                 action_name, action = self.single_action_map.get(action)
-                self.set_component_action(action_name, action)
+
+            self.set_component_action(action_name, action)
 
     def flatten_masks(self, mask_dict):
         """Convert a dictionary of component action masks into a single mask vector."""
@@ -453,7 +439,7 @@ class BaseAgent:
             list_of_masks.append(no_op_mask)
         for m in self._action_names:
             if m not in mask_dict:
-                raise KeyError("No mask provided for {} (agent {})".format(m, self.idx))
+                raise KeyError(f"No mask provided for {m} (agent {self.idx})")
             if self.multi_action_mode:
                 list_of_masks.append(no_op_mask)
             list_of_masks.append(mask_dict[m])

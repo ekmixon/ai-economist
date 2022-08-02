@@ -54,14 +54,9 @@ def generate_random_actions(env, num_envs):
         for agent_id in range(env.n_agents + 1):  # Agents + Planner
             if agent_id == env.n_agents:
                 agent_id = "p"  # for the planner
-            if isinstance(env.action_space[str(agent_id)], Discrete):
-                action_dict[str(agent_id)] = np.random.randint(
-                    low=0, high=int(env.action_space[str(agent_id)].n), dtype=np.int32
-                )
-            else:  # MultiDiscrete action space
-                action_dict[str(agent_id)] = np.random.randint(
-                    low=0, high=int(env.action_space[str(agent_id)].n), dtype=np.int32
-                )
+            action_dict[str(agent_id)] = np.random.randint(
+                low=0, high=int(env.action_space[str(agent_id)].n), dtype=np.int32
+            )
         action_list += [action_dict]
     return action_list
 

@@ -32,17 +32,17 @@ class DatasetCovidPoliciesUS:
     def __init__(self, data_dir="", download_latest_data=True):
         if not os.path.exists(data_dir):
             print(
-                "Creating a dynamic data directory to store COVID-19 "
-                "policy tracking data: {}".format(data_dir)
+                f"Creating a dynamic data directory to store COVID-19 policy tracking data: {data_dir}"
             )
+
             os.makedirs(data_dir)
 
         filename = "daily_us_policies.csv"
         if download_latest_data or filename not in os.listdir(data_dir):
             print(
-                "Fetching latest U.S. COVID-19 policies data from OxCGRT, "
-                "and saving it in {}".format(data_dir)
+                f"Fetching latest U.S. COVID-19 policies data from OxCGRT, and saving it in {data_dir}"
             )
+
             req = requests.get(
                 "https://raw.githubusercontent.com/OxCGRT/USA-covid-policy/master/"
                 "data/OxCGRT_US_latest.csv"
@@ -60,9 +60,9 @@ class DatasetCovidPoliciesUS:
             )  # Note: performs an overwrite
         else:
             print(
-                "Not fetching the latest U.S. COVID-19 policies data from OxCGRT. "
-                "Using whatever was saved earlier in {}!!".format(data_dir)
+                f"Not fetching the latest U.S. COVID-19 policies data from OxCGRT. Using whatever was saved earlier in {data_dir}!!"
             )
+
             assert filename in os.listdir(data_dir)
             self.df = pd.read_csv(os.path.join(data_dir, filename), low_memory=False)
 

@@ -66,13 +66,11 @@ class WealthRedistribution(BaseComponent):
 
     def generate_observations(self):
         """This component does not add any observations."""
-        obs = {}
-        return obs
+        return {}
 
     def generate_masks(self, completions=0):
         """Passive component. Masks are empty."""
-        masks = {}
-        return masks
+        return {}
 
 
 @component_registry.add

@@ -23,17 +23,17 @@ class DatasetCovidVaccinationsUS:
     def __init__(self, data_dir="", download_latest_data=True):
         if not os.path.exists(data_dir):
             print(
-                "Creating a dynamic data directory to store COVID-19 "
-                "vaccination data: {}".format(data_dir)
+                f"Creating a dynamic data directory to store COVID-19 vaccination data: {data_dir}"
             )
+
             os.makedirs(data_dir)
 
         filename = "daily_us_vaccinations.csv"
         if download_latest_data or filename not in os.listdir(data_dir):
             print(
-                "Fetching latest U.S. COVID-19 vaccination data from "
-                "Our World in Data, and saving it in {}".format(data_dir)
+                f"Fetching latest U.S. COVID-19 vaccination data from Our World in Data, and saving it in {data_dir}"
             )
+
 
             req = requests.get(
                 "https://raw.githubusercontent.com/owid/covid-19-data/master/"
@@ -52,10 +52,8 @@ class DatasetCovidVaccinationsUS:
             )  # Note: performs an overwrite
         else:
             print(
-                "Not fetching the latest U.S. COVID-19 deaths data from "
-                "Our World in Data. Using whatever was saved earlier in {}!!".format(
-                    data_dir
-                )
+                f"Not fetching the latest U.S. COVID-19 deaths data from Our World in Data. Using whatever was saved earlier in {data_dir}!!"
             )
+
             assert filename in os.listdir(data_dir)
             self.df = pd.read_csv(os.path.join(data_dir, filename), low_memory=False)

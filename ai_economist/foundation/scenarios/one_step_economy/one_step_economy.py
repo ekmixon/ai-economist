@@ -136,10 +136,7 @@ class OneStepEconomy(BaseEnvironment):
         The planner also receives spatial observations (again, depending on the env
         config) as well as the inventory of each of the mobile agents.
         """
-        obs_dict = dict()
-        for agent in self.world.agents:
-            obs_dict[str(agent.idx)] = {}
-
+        obs_dict = {str(agent.idx): {} for agent in self.world.agents}
         coin_endowments = np.array(
             [agent.total_endowment("Coin") for agent in self.world.agents]
         )
@@ -214,8 +211,6 @@ class OneStepEconomy(BaseEnvironment):
 
         Here, summarize social metrics, endowments, utilities, and labor cost annealing.
         """
-        metrics = dict()
-
         # Log social/economic indicators
         coin_endowments = np.array(
             [agent.total_endowment("Coin") for agent in self.world.agents]
@@ -223,9 +218,10 @@ class OneStepEconomy(BaseEnvironment):
         pretax_incomes = np.array(
             [agent.state["production"] for agent in self.world.agents]
         )
-        metrics["social/productivity"] = social_metrics.get_productivity(
-            coin_endowments
-        )
+        metrics = {
+            "social/productivity": social_metrics.get_productivity(coin_endowments)
+        }
+
         metrics["social/equality"] = social_metrics.get_equality(coin_endowments)
 
         utilities = np.array(
@@ -262,16 +258,16 @@ class OneStepEconomy(BaseEnvironment):
             agent_utilities.append(self.curr_optimization_metrics[agent.idx])
 
         for resource, quantities in agent_endows.items():
-            metrics["endow/avg_agent/{}".format(resource)] = np.mean(quantities)
+            metrics[f"endow/avg_agent/{resource}"] = np.mean(quantities)
 
         for endogenous, quantities in agent_endogenous.items():
-            metrics["endogenous/avg_agent/{}".format(endogenous)] = np.mean(quantities)
+            metrics[f"endogenous/avg_agent/{endogenous}"] = np.mean(quantities)
 
         metrics["util/avg_agent"] = np.mean(agent_utilities)
 
         # Log endowments and utility for the planner
         for resource, quantity in self.world.planner.inventory.items():
-            metrics["endow/p/{}".format(resource)] = quantity
+            metrics[f"endow/p/{resource}"] = quantity
 
         metrics["util/p"] = self.curr_optimization_metrics[self.world.planner.idx]
 
